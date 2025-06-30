@@ -1,83 +1,76 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Events } = require('discord.js');
-const fs = require('fs');
-const express = require('express');
-const app = express();
+const { Client, GatewayIntentBits, Routes, SlashCommandBuilder } = require('discord.js');
+const { REST } = require('@discordjs/rest');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
-const LOG_FILE = 'logs.json';
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = 'YOUR_BOT_CLIENT_ID';   // Replace with your bot client ID
+const GUILD_ID = 'YOUR_GUILD_ID';         // Replace with your server ID for testing
 
-function logEvent(data) {
-  const logs = fs.existsSync(LOG_FILE)
-    ? JSON.parse(fs.readFileSync(LOG_FILE))
-    : [];
+const commands = [
+  new SlashCommandBuilder()
+    .setName('say')
+    .setDescription('Send a message to a channel with optional file')
+    .addStringOption(option =>
+      option.setName('content')
+      .setDescription('The message content')
+      .setRequired(false))
+    .addChannelOption(option =>
+      option.setName('channel')
+      .setDescription('The channel to send the message in')
+      .setRequired(false))
+    .addAttachmentOption(option =>
+      option.setName('file')
+      .setDescription('Optional file to attach')
+      .setRequired(false))
+].map(cmd => cmd.toJSON());
 
-  logs.push(data);
-  fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
-}
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+  try {
+    console.log('Refreshing application (/) commands...');
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
+    console.log('Commands refreshed.');
+  } catch (error) {
+    console.error(error);
+  }
+})();
 
 client.on('ready', () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
-client.on(Events.MessageCreate, message => {
-  if (message.author.bot) return;
-  logEvent({
-    type: "MESSAGE",
-    user: message.author.tag,
-    userId: message.author.id,
-    channel: message.channel.name,
-    content: message.content,
-    timestamp: new Date().toISOString()
-  });
-});
-
-client.on(Events.MessageDelete, message => {
-  if (message.partial || message.author?.bot) return;
-  logEvent({
-    type: "DELETE",
-    user: message.author?.tag,
-    userId: message.author?.id,
-    channel: message.channel?.name,
-    content: message.content,
-    timestamp: new Date().toISOString()
-  });
-});
-
-client.on(Events.InteractionCreate, interaction => {
+client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  logEvent({
-    type: "SLASH_COMMAND",
-    user: interaction.user.tag,
-    userId: interaction.user.id,
-    command: interaction.commandName,
-    options: interaction.options.data,
-    channel: interaction.channel.name,
-    timestamp: new Date().toISOString()
-  });
+
+  if (interaction.commandName === 'say') {
+    const content = interaction.options.getString('content') || '';
+    const channel = interaction.options.getChannel('channel') || interaction.channel;
+    const file = interaction.options.getAttachment('file');
+
+    if (!channel.isTextBased() || !channel.permissionsFor(client.user).has('SendMessages')) {
+      return interaction.reply({ content: 'I cannot send messages to that channel.', ephemeral: true });
+    }
+
+    const messageOptions = {};
+    if (content) messageOptions.content = content;
+    if (file) messageOptions.files = [file.url];
+
+    try {
+      await channel.send(messageOptions);
+      await interaction.reply({ content: `Message sent in ${channel}`, ephemeral: true });
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: 'Failed to send the message.', ephemeral: true });
+    }
+  }
 });
 
-client.login(process.env.DISCORD_TOKEN);
-
-// Web Dashboard
-app.get('/logs', (req, res) => {
-  if (!fs.existsSync(LOG_FILE)) return res.json([]);
-  const logs = JSON.parse(fs.readFileSync(LOG_FILE));
-  res.json(logs);
-});
-
-app.get('/', (req, res) => {
-  res.send(`<h2>SilentWatch</h2><p>Visit <a href="/logs">/logs</a> to view logs.</p>`);
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌐 Web dashboard running on http://localhost:${PORT}`);
-});
+client.login(TOKEN);
