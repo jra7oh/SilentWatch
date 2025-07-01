@@ -19,7 +19,7 @@ const CLIENT_ID = '1389383683361996800';
 const GUILD_ID = '1386044830290804938';
 
 // Your Discord user ID to receive DM notifications
-const OWNER_ID = 'YOUR_DISCORD_USER_ID';
+const OWNER_ID = '849685727721422858';
 
 const commands = [
   new SlashCommandBuilder()
@@ -80,9 +80,15 @@ client.on('interactionCreate', async interaction => {
       await channel.send(messageOptions);
       await interaction.reply({ content: `✅ Message sent in ${channel}`, ephemeral: true });
 
-      // Send DM to OWNER_ID
-      const ownerUser = await client.users.fetch(OWNER_ID);
-      ownerUser.send(`User ${interaction.user.tag} used /say in #${channel.name || channel.id} with content: "${content}"`);
+      // Send DM to OWNER_ID with error handling
+      try {
+        const ownerUser = await client.users.fetch(OWNER_ID);
+        await ownerUser.send(`User ${interaction.user.tag} used /say in #${channel.name || channel.id} with content: "${content}"`);
+        console.log('DM sent to owner.');
+      } catch (dmError) {
+        console.error(`Failed to send DM to owner: ${dmError}`);
+      }
+
     } catch (error) {
       console.error(error);
       await interaction.reply({ content: '❌ Failed to send the message.', ephemeral: true });
