@@ -1,124 +1,122 @@
 require('dotenv').config();
-const express = require('express');
-const { Client, GatewayIntentBits, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, PermissionsBitField } = require('discord.js');
 const { REST } = require('@discordjs/rest');
-
-// Web server so Render doesn't complain
-const app = express();
-const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Bot is running.'));
-app.listen(PORT, () => console.log(`🌐 Web server listening on port ${PORT}`));
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1389383683361996800'; // your bot client ID
-const GUILD_ID = '1386044830290804938';  // your guild ID
+const GUILD_ID = '1386044830290804938';  // your server ID
+const OWNER_ID = '849685727721422858';   // your Discord ID
 
-const OWNER_ID = '849685727721422858'; // your Discord user ID to receive DMs on usage
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
+});
 
+// Slash command setup
 const commands = [
   new SlashCommandBuilder()
     .setName('say')
-    .setDescription('Send a message to a channel with optional content, channel, file, GIF, or video')
+    .setDescription('Send a message to a channel with optional file or gif')
     .addStringOption(option =>
       option.setName('content')
-        .setDescription('The content of the message you want to send.')
+        .setDescription('The message you want to send')
         .setRequired(false))
     .addChannelOption(option =>
       option.setName('channel')
-        .setDescription('The channel where you want to send the message.')
+        .setDescription('The channel to send the message to')
         .setRequired(false))
     .addAttachmentOption(option =>
       option.setName('file')
-        .setDescription('A file you want to attach to the message.')
+        .setDescription('A file (image/video) to attach')
         .setRequired(false))
     .addStringOption(option =>
       option.setName('gif')
-        .setDescription('A GIF URL to embed beside the message.')
+        .setDescription('Paste a direct GIF URL (e.g., from tenor/giphy)')
         .setRequired(false))
-    .addStringOption(option =>
-      option.setName('video')
-        .setDescription('A video URL to send (auto-embedded by Discord).')
-        .setRequired(false))
-].map(cmd => cmd.toJSON());
+].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
+// Register slash commands
 (async () => {
   try {
-    console.log('🔁 Refreshing application (/) commands...');
+    console.log('Registering slash commands...');
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash commands registered.');
+    console.log('✅ Commands registered!');
   } catch (error) {
-    console.error(error);
+    console.error('Command registration error:', error);
   }
 })();
 
-client.on('ready', () => {
+// On bot ready
+client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 });
 
+// Slash command interaction
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'say') return;
 
-  if (interaction.commandName === 'say') {
-    const content = interaction.options.getString('content') || '';
-    const channel = interaction.options.getChannel('channel') || interaction.channel;
-    const file = interaction.options.getAttachment('file');
-    const gifUrl = interaction.options.getString('gif');
-    const videoUrl = interaction.options.getString('video');
+  // Allow only Ali
+  if (interaction.user.id !== OWNER_ID) {
+    return interaction.reply({ content: "⛔ Only the bot owner can use this command.", ephemeral: true });
+  }
 
-    if (!channel.isTextBased() || !channel.permissionsFor(client.user).has('SendMessages')) {
-      return interaction.reply({ content: '❌ I cannot send messages to that channel.', ephemeral: true });
+  const content = interaction.options.getString('content') || '';
+  const file = interaction.options.getAttachment('file');
+  const gif = interaction.options.getString('gif');
+  const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+
+  if (!targetChannel.isTextBased() || !targetChannel.permissionsFor(client.user).has(PermissionsBitField.Flags.SendMessages)) {
+    return interaction.reply({ content: "❌ I can't send messages in that channel.", ephemeral: true });
+  }
+
+  const messageData = {};
+  if (content) messageData.content = content;
+  if (file) messageData.files = [file.url];
+  if (gif) messageData.content = (messageData.content || '') + '\n' + gif;
+
+  try {
+    // Send message to target channel
+    await targetChannel.send(messageData);
+    await interaction.reply({ content: `✅ Message sent in ${targetChannel}`, ephemeral: true });
+
+    // DM you a log
+    const owner = await client.users.fetch(OWNER_ID);
+    await owner.send(`📬 **/say used**
+📍 Channel: ${targetChannel.name}
+📝 Content: ${content || 'None'}
+📎 File: ${file ? file.url : 'None'}
+🎞️ GIF: ${gif || 'None'}`);
+  } catch (err) {
+    console.error('Error sending message:', err);
+    await interaction.reply({ content: "❌ Failed to send the message.", ephemeral: true });
+  }
+});
+
+// DM you if bot is kicked
+client.on('guildMemberRemove', async member => {
+  if (member.id !== client.user.id) return;
+
+  try {
+    const fetchedLogs = await member.guild.fetchAuditLogs({ limit: 1, type: 20 }); // Kick
+    const kickLog = fetchedLogs.entries.first();
+    const owner = await client.users.fetch(OWNER_ID);
+
+    if (kickLog) {
+      const executor = kickLog.executor;
+      await owner.send(`⚠️ Your bot was kicked from **${member.guild.name}** by **${executor.tag}** (ID: ${executor.id})`);
+    } else {
+      await owner.send(`⚠️ Your bot was removed from **${member.guild.name}**, but no audit log was found.`);
     }
-
-    const messageOptions = {};
-    if (content) messageOptions.content = content;
-    if (file) messageOptions.files = [file.url];
-
-    if (gifUrl) {
-      try {
-        new URL(gifUrl);
-        const embed = new EmbedBuilder().setImage(gifUrl);
-        messageOptions.embeds = [embed];
-      } catch {
-        // invalid URL ignored
-      }
-    }
-
-    if (videoUrl) {
-      try {
-        new URL(videoUrl);
-        messageOptions.content = (messageOptions.content || '') + `\n${videoUrl}`;
-      } catch {
-        // invalid URL ignored
-      }
-    }
-
-    console.log(`${interaction.user.tag} used /say in ${channel.name || channel.id}`);
-
-    try {
-      await channel.send(messageOptions);
-      await interaction.reply({ content: `✅ Message sent in ${channel}`, ephemeral: true });
-
-      try {
-        const ownerUser = await client.users.fetch(OWNER_ID);
-        await ownerUser.send(`User ${interaction.user.tag} used /say in #${channel.name || channel.id} with content: "${content}"${gifUrl ? `, gif: ${gifUrl}` : ''}${videoUrl ? `, video: ${videoUrl}` : ''}`);
-        console.log('DM sent to owner.');
-      } catch (dmError) {
-        console.error(`Failed to send DM to owner: ${dmError}`);
-      }
-
-    } catch (error) {
-      console.error(error);
-      await interaction.reply({ content: '❌ Failed to send the message.', ephemeral: true });
-    }
+  } catch (err) {
+    console.error('Error handling bot kick:', err);
   }
 });
 
