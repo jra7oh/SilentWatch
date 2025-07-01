@@ -6,7 +6,7 @@ const express = require('express');
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1389383683361996800'; // your bot client ID
 const GUILD_ID = '1386044830290804938';  // your server ID
-const OWNER_ID = '849685727721422858';   // your user ID
+const OWNER_ID = '849685727721422858';   // your Discord user ID
 
 const client = new Client({
   intents: [
@@ -15,7 +15,7 @@ const client = new Client({
   ]
 });
 
-// Slash command setup
+// Define slash commands
 const commands = [
   new SlashCommandBuilder()
     .setName('say')
@@ -34,13 +34,13 @@ const commands = [
         .setRequired(false))
     .addStringOption(option =>
       option.setName('gif')
-        .setDescription('Paste a direct GIF URL (e.g., from tenor/giphy)')
+        .setDescription('Paste a direct GIF URL (e.g., from Tenor/Giphy)')
         .setRequired(false))
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// Register slash commands
+// Register commands
 (async () => {
   try {
     console.log('Registering slash commands...');
@@ -59,12 +59,11 @@ client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 });
 
-// Slash command interaction
+// Command handling
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'say') return;
 
-  // Allow only owner
   if (interaction.user.id !== OWNER_ID) {
     return interaction.reply({ content: "⛔ Only the bot owner can use this command.", ephemeral: true });
   }
@@ -87,7 +86,6 @@ client.on('interactionCreate', async interaction => {
     await targetChannel.send(messageData);
     await interaction.reply({ content: `✅ Message sent in ${targetChannel}`, ephemeral: true });
 
-    // Send clean DM log
     const owner = await client.users.fetch(OWNER_ID);
     let log = `📬 User ${interaction.user.tag} used /say in #${targetChannel.name}`;
     if (content) log += ` with content: "${content}"`;
@@ -95,17 +93,17 @@ client.on('interactionCreate', async interaction => {
     if (gif) log += `\n🎞️ GIF: ${gif}`;
     await owner.send(log);
 
-  } catch (err) {
-    console.error('Error sending message:', err);
-    await interaction.reply({ content: "❌ Failed to send the message.", ephemeral: true });
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: "❌ Failed to send the message.", ephemeral: true });
+    }
   }
 });
 
-client.login(TOKEN);
-
-// === EXPRESS SERVER FOR RENDER/UPTIMEROBOT ===
+// === EXPRESS PING SERVER FOR RENDER/UPTIMEROBOT ===
 const app = express();
-app.get('/', (req, res) => res.send('Bot is alive!'));
+app.get('/', (req, res) => res.send('Bot is running!'));
 app.listen(process.env.PORT || 3000, () => {
   console.log(`🌐 Web server running on port ${process.env.PORT || 3000}`);
 });
