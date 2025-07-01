@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, PermissionsBitField } = require('discord.js');
 const { REST } = require('@discordjs/rest');
+const express = require('express');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1389383683361996800'; // your bot client ID
@@ -121,3 +122,10 @@ client.on('guildMemberRemove', async member => {
 });
 
 client.login(TOKEN);
+
+// === EXPRESS FAKE SERVER TO PLEASE RENDER ===
+const app = express();
+app.get('/', (req, res) => res.send('Bot is alive!'));
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`🌐 Web server running on port ${process.env.PORT || 3000}`);
+});
