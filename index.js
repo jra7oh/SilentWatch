@@ -11,7 +11,8 @@ const OWNER_ID = '849685727721422858';   // your Discord user ID
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages  // Added this intent to fix offline issue
   ]
 });
 
@@ -57,6 +58,10 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 // On bot ready
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
+  client.user.setPresence({
+    activities: [{ name: '/say command ready!' }],
+    status: 'online',
+  });
 });
 
 // Command handling
@@ -87,7 +92,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `✅ Message sent in ${targetChannel}`, ephemeral: true });
 
     const owner = await client.users.fetch(OWNER_ID);
-    let log = `📬 User ${interaction.user.tag} used /say in #${targetChannel.name}`;
+    let log = `User ${interaction.user.tag} used /say in #${targetChannel.name}`;
     if (content) log += ` with content: "${content}"`;
     if (file) log += `\n📎 Attached file: ${file.url}`;
     if (gif) log += `\n🎞️ GIF: ${gif}`;
@@ -107,3 +112,5 @@ app.get('/', (req, res) => res.send('Bot is running!'));
 app.listen(process.env.PORT || 3000, () => {
   console.log(`🌐 Web server running on port ${process.env.PORT || 3000}`);
 });
+
+client.login(TOKEN);
