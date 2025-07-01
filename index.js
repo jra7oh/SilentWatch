@@ -6,7 +6,7 @@ const express = require('express');
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = '1389383683361996800'; // your bot client ID
 const GUILD_ID = '1386044830290804938';  // your server ID
-const OWNER_ID = '849685727721422858';   // your Discord ID
+const OWNER_ID = '849685727721422858';   // your user ID
 
 const client = new Client({
   intents: [
@@ -64,7 +64,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'say') return;
 
-  // Allow only Ali
+  // Allow only owner
   if (interaction.user.id !== OWNER_ID) {
     return interaction.reply({ content: "⛔ Only the bot owner can use this command.", ephemeral: true });
   }
@@ -84,46 +84,26 @@ client.on('interactionCreate', async interaction => {
   if (gif) messageData.content = (messageData.content || '') + '\n' + gif;
 
   try {
-    // Send message to target channel
     await targetChannel.send(messageData);
     await interaction.reply({ content: `✅ Message sent in ${targetChannel}`, ephemeral: true });
 
-    // DM you a log
+    // Send clean DM log
     const owner = await client.users.fetch(OWNER_ID);
-    await owner.send(`📬 **/say used**
-📍 Channel: ${targetChannel.name}
-📝 Content: ${content || 'None'}
-📎 File: ${file ? file.url : 'None'}
-🎞️ GIF: ${gif || 'None'}`);
+    let log = `📬 User ${interaction.user.tag} used /say in #${targetChannel.name}`;
+    if (content) log += ` with content: "${content}"`;
+    if (file) log += `\n📎 Attached file: ${file.url}`;
+    if (gif) log += `\n🎞️ GIF: ${gif}`;
+    await owner.send(log);
+
   } catch (err) {
     console.error('Error sending message:', err);
     await interaction.reply({ content: "❌ Failed to send the message.", ephemeral: true });
   }
 });
 
-// DM you if bot is kicked
-client.on('guildMemberRemove', async member => {
-  if (member.id !== client.user.id) return;
-
-  try {
-    const fetchedLogs = await member.guild.fetchAuditLogs({ limit: 1, type: 20 }); // Kick
-    const kickLog = fetchedLogs.entries.first();
-    const owner = await client.users.fetch(OWNER_ID);
-
-    if (kickLog) {
-      const executor = kickLog.executor;
-      await owner.send(`⚠️ Your bot was kicked from **${member.guild.name}** by **${executor.tag}** (ID: ${executor.id})`);
-    } else {
-      await owner.send(`⚠️ Your bot was removed from **${member.guild.name}**, but no audit log was found.`);
-    }
-  } catch (err) {
-    console.error('Error handling bot kick:', err);
-  }
-});
-
 client.login(TOKEN);
 
-// === EXPRESS FAKE SERVER TO PLEASE RENDER ===
+// === EXPRESS SERVER FOR RENDER/UPTIMEROBOT ===
 const app = express();
 app.get('/', (req, res) => res.send('Bot is alive!'));
 app.listen(process.env.PORT || 3000, () => {
