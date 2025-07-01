@@ -3,6 +3,7 @@ const express = require('express');
 const { Client, GatewayIntentBits, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 
+// Web server so Render doesn't complain
 const app = express();
 const PORT = process.env.PORT || 10000;
 app.get('/', (req, res) => res.send('Bot is running.'));
@@ -13,14 +14,15 @@ const client = new Client({
 });
 
 const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = '1389383683361996800';
-const GUILD_ID = '1386044830290804938';
-const OWNER_ID = '849685727721422858';
+const CLIENT_ID = '1389383683361996800'; // your bot client ID
+const GUILD_ID = '1386044830290804938';  // your guild ID
+
+const OWNER_ID = '849685727721422858'; // your Discord user ID to receive DMs on usage
 
 const commands = [
   new SlashCommandBuilder()
     .setName('say')
-    .setDescription('Send a message to a channel with optional file, image, and video URLs')
+    .setDescription('Send a message to a channel with optional content, channel, file, GIF, or video')
     .addStringOption(option =>
       option.setName('content')
         .setDescription('The content of the message you want to send.')
@@ -34,8 +36,8 @@ const commands = [
         .setDescription('A file you want to attach to the message.')
         .setRequired(false))
     .addStringOption(option =>
-      option.setName('image')
-        .setDescription('A GIF or photo URL to embed beside the message.')
+      option.setName('gif')
+        .setDescription('A GIF URL to embed beside the message.')
         .setRequired(false))
     .addStringOption(option =>
       option.setName('video')
@@ -69,7 +71,7 @@ client.on('interactionCreate', async interaction => {
     const content = interaction.options.getString('content') || '';
     const channel = interaction.options.getChannel('channel') || interaction.channel;
     const file = interaction.options.getAttachment('file');
-    const imageUrl = interaction.options.getString('image');
+    const gifUrl = interaction.options.getString('gif');
     const videoUrl = interaction.options.getString('video');
 
     if (!channel.isTextBased() || !channel.permissionsFor(client.user).has('SendMessages')) {
@@ -80,13 +82,13 @@ client.on('interactionCreate', async interaction => {
     if (content) messageOptions.content = content;
     if (file) messageOptions.files = [file.url];
 
-    if (imageUrl) {
+    if (gifUrl) {
       try {
-        new URL(imageUrl);
-        const embed = new EmbedBuilder().setImage(imageUrl);
+        new URL(gifUrl);
+        const embed = new EmbedBuilder().setImage(gifUrl);
         messageOptions.embeds = [embed];
       } catch {
-        // ignore invalid URLs
+        // invalid URL ignored
       }
     }
 
@@ -95,7 +97,7 @@ client.on('interactionCreate', async interaction => {
         new URL(videoUrl);
         messageOptions.content = (messageOptions.content || '') + `\n${videoUrl}`;
       } catch {
-        // ignore invalid URLs
+        // invalid URL ignored
       }
     }
 
@@ -107,7 +109,7 @@ client.on('interactionCreate', async interaction => {
 
       try {
         const ownerUser = await client.users.fetch(OWNER_ID);
-        await ownerUser.send(`User ${interaction.user.tag} used /say in #${channel.name || channel.id} with content: "${content}"${imageUrl ? `, image: ${imageUrl}` : ''}${videoUrl ? `, video: ${videoUrl}` : ''}`);
+        await ownerUser.send(`User ${interaction.user.tag} used /say in #${channel.name || channel.id} with content: "${content}"${gifUrl ? `, gif: ${gifUrl}` : ''}${videoUrl ? `, video: ${videoUrl}` : ''}`);
         console.log('DM sent to owner.');
       } catch (dmError) {
         console.error(`Failed to send DM to owner: ${dmError}`);
