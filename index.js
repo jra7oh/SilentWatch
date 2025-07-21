@@ -59,7 +59,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   client.user.setPresence({
-    activities: [{ name: '/say command ready!' }],
+    activities: [{ name: '| Stark Protocols In Motion!', type: 3 }], // Watching with vertical bar
     status: 'online',
   });
 });
