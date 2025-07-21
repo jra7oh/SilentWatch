@@ -59,7 +59,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   client.user.setPresence({
-    activities: [{ name: "| Tony's Protocols Live!", type: 3 }], // type 3 = Watching
+    activities: [{ name: "Tony's Protocols", type: 3 }], // Watching
     status: 'online',
   });
 });
