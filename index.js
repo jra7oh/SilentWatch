@@ -59,7 +59,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   client.user.setPresence({
-    activities: [{ name: '| Jarvis Running ⋆ Tony’s Orders', type: 0 }], // Playing status with smaller star
+    activities: [{ name: "| Tony's Protocols Live!", type: 3 }], // type 3 = Watching
     status: 'online',
   });
 });
