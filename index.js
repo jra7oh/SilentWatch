@@ -59,7 +59,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   client.user.setPresence({
-    activities: [{ name: '| Stark Protocols!', type: 3 }], // shortened to fit Discord limits
+    activities: [{ name: '| Jarvis Running ⋆ Tony’s Orders', type: 0 }], // Playing status with smaller star
     status: 'online',
   });
 });
